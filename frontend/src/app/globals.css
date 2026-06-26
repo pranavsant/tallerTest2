@@ -4,22 +4,49 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Sidebar / layout dimensions — kept in sync with tailwind.config.ts spacing */
+    --sidebar-width: 16rem;
+    --topbar-height: 4rem;
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --background: 222.2 84% 4.9%;
-      --foreground: 210 40% 98%;
-    }
-  }
-
-  * {
-    @apply border-border;
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
   }
 
   body {
-    @apply bg-white text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-50;
+    @apply bg-surface-muted text-gray-900 antialiased dark:bg-surface-dark dark:text-gray-50;
+  }
+
+  /* Smooth scrolling except for users who prefer reduced motion */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  /* Focus ring — use brand color for keyboard navigation */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2;
+  }
+}
+
+@layer utilities {
+  /* Line-clamp shim (already in Tailwind v3.3+ but left for clarity) */
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  /* Full-bleed scrollable panel inside the dashboard shell */
+  .scroll-area {
+    @apply overflow-y-auto overscroll-contain;
   }
 }

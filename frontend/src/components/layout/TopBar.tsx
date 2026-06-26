@@ -1,0 +1,71 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import { Bell } from "lucide-react";
+
+// ---------------------------------------------------------------------------
+// Derive a human-readable page title from the current pathname
+// ---------------------------------------------------------------------------
+
+function deriveTitle(pathname: string): string {
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length === 0) return "Home";
+
+  // /dashboard → "Dashboard"
+  // /dashboard/agents → "Agents"
+  // /dashboard/agents/[id] → "Agent Details"
+  // /dashboard/sessions/new → "New Session"
+  const last = segments[segments.length - 1];
+
+  // If the last segment looks like a UUID, use "Details" as the suffix
+  const uuidRe =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidRe.test(last)) {
+    const parent = segments[segments.length - 2] ?? "";
+    return `${capitalise(parent.replace(/-/g, " "))} Details`;
+  }
+
+  return capitalise(last.replace(/-/g, " "));
+}
+
+function capitalise(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export function TopBar() {
+  const pathname = usePathname();
+  const title = deriveTitle(pathname);
+
+  return (
+    <header className="fixed right-0 top-0 z-30 flex h-topbar items-center justify-between border-b border-topbar-border bg-topbar px-6 dark:border-topbar-border-dark dark:bg-topbar-dark"
+      style={{ left: "var(--sidebar-width, 16rem)" }}
+    >
+      {/* Page title */}
+      <h1 className="text-base font-semibold text-gray-900 dark:text-white">{title}</h1>
+
+      {/* Right controls */}
+      <div className="flex items-center gap-3">
+        {/* Notification bell (placeholder) */}
+        <button
+          type="button"
+          aria-label="Notifications"
+          className="relative rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+        >
+          <Bell className="h-4 w-4" aria-hidden="true" />
+        </button>
+
+        {/* User avatar (placeholder) */}
+        <div
+          aria-label="User menu"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white"
+        >
+          U
+        </div>
+      </div>
+    </header>
+  );
+}
