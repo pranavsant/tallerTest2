@@ -28,6 +28,7 @@ from src.interfaces.api.container import (
     get_assign_role_use_case,
     get_initiate_call_use_case,
     get_list_users_use_case,
+    get_set_user_active_use_case,
     get_token_validator,
 )
 from src.interfaces.api.main import create_app
@@ -72,6 +73,7 @@ class _FakeListUsersUseCase:
                     user_id="u1",
                     email="a@b.com",
                     role="viewer",
+                    is_active=True,
                     created_at=None,
                     last_sign_in_at=None,
                 )
@@ -87,6 +89,19 @@ class _FakeAssignRoleUseCase:
             user_id=dto.user_id,
             email="a@b.com",
             role=dto.role,
+            is_active=True,
+            created_at=None,
+            last_sign_in_at=None,
+        )
+
+
+class _FakeSetUserActiveUseCase:
+    async def execute(self, dto) -> UserOutputDTO:  # type: ignore[no-untyped-def]
+        return UserOutputDTO(
+            user_id=dto.user_id,
+            email="a@b.com",
+            role="viewer",
+            is_active=dto.is_active,
             created_at=None,
             last_sign_in_at=None,
         )
@@ -102,6 +117,9 @@ def client() -> TestClient:
     app.dependency_overrides[get_list_users_use_case] = lambda: _FakeListUsersUseCase()
     app.dependency_overrides[get_assign_role_use_case] = (
         lambda: _FakeAssignRoleUseCase()
+    )
+    app.dependency_overrides[get_set_user_active_use_case] = (
+        lambda: _FakeSetUserActiveUseCase()
     )
     with TestClient(app) as c:
         yield c
@@ -176,3 +194,22 @@ def test_assign_invalid_role_returns_422(client: TestClient) -> None:
         "/admin/users/u1/role", json={"role": "superuser"}, headers=_auth(_ADMIN_TOKEN)
     )
     assert resp.status_code == 422
+
+
+def test_set_status_as_admin_succeeds(client: TestClient) -> None:
+    resp = client.put(
+        "/admin/users/u1/status",
+        json={"is_active": False},
+        headers=_auth(_ADMIN_TOKEN),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_active"] is False
+
+
+def test_set_status_as_viewer_returns_403(client: TestClient) -> None:
+    resp = client.put(
+        "/admin/users/u1/status",
+        json={"is_active": False},
+        headers=_auth(_VIEWER_TOKEN),
+    )
+    assert resp.status_code == 403

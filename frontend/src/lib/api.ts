@@ -51,6 +51,7 @@ import type {
   Paginated,
   SendMessageInput,
   Session,
+  SetUserActiveInput,
   StartSessionInput,
   UserRole,
   UUID,
@@ -250,6 +251,10 @@ export function createAdminApi(client: ApiClient) {
     /** `PUT /admin/users/{id}/role` — assign a role to a user. */
     assignRole(userId: UUID, input: AssignRoleInput): Promise<AdminUser> {
       return client.put<AdminUser>(`/admin/users/${userId}/role`, input);
+    },
+    /** `PUT /admin/users/{id}/status` — deactivate or reactivate an account. */
+    setActive(userId: UUID, input: SetUserActiveInput): Promise<AdminUser> {
+      return client.put<AdminUser>(`/admin/users/${userId}/status`, input);
     },
   };
 }

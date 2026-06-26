@@ -312,6 +312,8 @@ export interface AdminUser {
   user_id: UUID;
   email: string | null;
   role: UserRole | null;
+  /** Account sign-in status. `false` means the account has been deactivated. */
+  is_active: boolean;
   created_at: ISODateString | null;
   last_sign_in_at: ISODateString | null;
 }
@@ -330,6 +332,11 @@ export interface ListAdminUsersParams {
 /** Body of `PUT /admin/users/{id}/role`. */
 export interface AssignRoleInput {
   role: UserRole;
+}
+
+/** Body of `PUT /admin/users/{id}/status`. */
+export interface SetUserActiveInput {
+  is_active: boolean;
 }
 
 // ---------------------------------------------------------------------------

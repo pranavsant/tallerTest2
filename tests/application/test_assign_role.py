@@ -24,7 +24,23 @@ class _FakeDirectory(IUserDirectory):
         if existing is None:
             raise UserNotFoundError(f"User '{user_id}' not found")
         updated = DirectoryUser(
-            user_id=existing.user_id, email=existing.email, role=role
+            user_id=existing.user_id,
+            email=existing.email,
+            role=role,
+            is_active=existing.is_active,
+        )
+        self._users[user_id] = updated
+        return updated
+
+    async def set_active(self, user_id: str, is_active: bool) -> DirectoryUser:
+        existing = self._users.get(user_id)
+        if existing is None:
+            raise UserNotFoundError(f"User '{user_id}' not found")
+        updated = DirectoryUser(
+            user_id=existing.user_id,
+            email=existing.email,
+            role=existing.role,
+            is_active=is_active,
         )
         self._users[user_id] = updated
         return updated

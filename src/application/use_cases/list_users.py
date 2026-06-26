@@ -32,6 +32,7 @@ def _to_output(user: DirectoryUser) -> UserOutputDTO:
         user_id=user.user_id,
         email=user.email,
         role=user.role,
+        is_active=user.is_active,
         created_at=user.created_at,
         last_sign_in_at=user.last_sign_in_at,
     )

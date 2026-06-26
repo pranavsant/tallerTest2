@@ -16,6 +16,7 @@ class UserOutputDTO:
     user_id: str
     email: str | None
     role: str | None
+    is_active: bool
     created_at: datetime | None
     last_sign_in_at: datetime | None
 
@@ -37,3 +38,9 @@ class ListUsersOutputDTO:
 class AssignRoleInputDTO:
     user_id: str
     role: str
+
+
+@dataclass(frozen=True)
+class SetUserActiveInputDTO:
+    user_id: str
+    is_active: bool
