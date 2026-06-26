@@ -14,12 +14,15 @@ from functools import lru_cache
 from src.application.ports.realtime_publisher import IRealtimePublisher
 from src.application.ports.telephony_service import ITelephonyService
 from src.application.ports.token_validator import ITokenValidator
+from src.application.ports.user_directory import IUserDirectory
 from src.application.ports.voice_service import IVoiceService
+from src.application.use_cases.assign_role import AssignRoleUseCase
 from src.application.use_cases.create_agent import CreateAgentUseCase
 from src.application.use_cases.end_session import EndSessionUseCase
 from src.application.use_cases.get_agent import GetAgentUseCase
 from src.application.use_cases.initiate_call import InitiateCallUseCase
 from src.application.use_cases.list_agents import ListAgentsUseCase
+from src.application.use_cases.list_users import ListUsersUseCase
 from src.application.use_cases.send_message import SendMessageUseCase
 from src.application.use_cases.start_session import StartSessionUseCase
 from src.application.use_cases.stream_audio import StreamAudioUseCase
@@ -46,6 +49,7 @@ from src.infrastructure.repositories.supabase_session_repository import (
 )
 from src.infrastructure.services.elevenlabs_voice_service import ElevenLabsVoiceService
 from src.infrastructure.services.supabase_jwt_validator import SupabaseJWTValidator
+from src.infrastructure.services.supabase_user_directory import SupabaseUserDirectory
 from src.infrastructure.services.twilio_telephony_service import TwilioTelephonyService
 from src.infrastructure.services.websocket_realtime_publisher import (
     ConnectionRegistry,
@@ -84,6 +88,11 @@ async def get_message_repository() -> IMessageRepository:
 async def get_call_repository() -> ICallRepository:
     client = await get_supabase_client()
     return SupabaseCallRepository(client)
+
+
+async def get_user_directory() -> IUserDirectory:
+    client = await get_supabase_client()
+    return SupabaseUserDirectory(client)
 
 
 # ── Service factories ─────────────────────────────────────────────────────────
@@ -171,3 +180,11 @@ async def get_stream_audio_use_case() -> StreamAudioUseCase:
         agent_repository=await get_agent_repository(),
         voice_service=get_voice_service(),
     )
+
+
+async def get_list_users_use_case() -> ListUsersUseCase:
+    return ListUsersUseCase(await get_user_directory())
+
+
+async def get_assign_role_use_case() -> AssignRoleUseCase:
+    return AssignRoleUseCase(await get_user_directory())

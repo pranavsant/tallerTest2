@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth/server";
+import { RoleProvider } from "@/lib/auth/RoleProvider";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -27,28 +28,29 @@ export default async function DashboardLayout({
   // Belt-and-suspenders: the middleware already gates /dashboard, but guarding
   // here too means a Server Component never renders for an anonymous user even
   // if the matcher is ever misconfigured.
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/login");
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
+    // The role is resolved server-side and provided to Client Components so
+    // they can conditionally render role-gated actions.
+    <RoleProvider role={user.role}>
+      <div className="flex min-h-screen">
+        <Sidebar role={user.role} />
 
-      {/* Content area — offset by sidebar width */}
-      <div className="flex flex-1 flex-col pl-sidebar">
-        <TopBar userEmail={user.email} />
+        {/* Content area — offset by sidebar width */}
+        <div className="flex flex-1 flex-col pl-sidebar">
+          <TopBar userEmail={user.email} role={user.role} />
 
-        {/* Page content — padded below the fixed topbar */}
-        <main className="flex-1 overflow-auto pt-topbar">
-          <div className="px-6 py-8">{children}</div>
-        </main>
+          {/* Page content — padded below the fixed topbar */}
+          <main className="flex-1 overflow-auto pt-topbar">
+            <div className="px-6 py-8">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
+    </RoleProvider>
   );
 }

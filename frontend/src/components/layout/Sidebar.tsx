@@ -8,9 +8,12 @@ import {
   MessageSquare,
   Phone,
   Settings,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { UserRole } from "@/lib/types";
+import { canManageUsers } from "@/lib/auth/roles";
 
 // ---------------------------------------------------------------------------
 // Nav items
@@ -20,6 +23,8 @@ interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
+  /** When set, the item is only shown to users holding one of these roles. */
+  requiresRole?: UserRole[];
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -28,14 +33,27 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Sessions", href: "/dashboard/sessions", icon: MessageSquare },
   { label: "Calls", href: "/dashboard/calls", icon: Phone },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
+  // Admin-only: user & role management.
+  {
+    label: "Admin",
+    href: "/dashboard/admin",
+    icon: ShieldCheck,
+    requiresRole: ["admin"],
+  },
 ];
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function Sidebar() {
+export function Sidebar({ role }: { role: UserRole | null }) {
   const pathname = usePathname();
+
+  const visibleItems = NAV_ITEMS.filter((item) => {
+    if (!item.requiresRole) return true;
+    // Currently only the admin item is gated; keep the check general.
+    return item.href === "/dashboard/admin" ? canManageUsers(role) : true;
+  });
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-sidebar flex-col bg-sidebar shadow-sidebar">
@@ -52,7 +70,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="space-y-1" role="list">
-          {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+          {visibleItems.map(({ label, href, icon: Icon }) => {
             // Active if pathname equals the href, or starts with it (for nested routes)
             // except for /dashboard itself which would match everything.
             const isActive =

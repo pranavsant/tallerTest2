@@ -28,6 +28,11 @@ class UserModel(Base):
         String(320), nullable=False, unique=True, index=True
     )
     full_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Local mirror of the user's application role. The authoritative source for
+    # authorization is the role in the user's Supabase ``app_metadata`` (it is
+    # stamped onto the access token and enforced via ``require_role``). This
+    # column exists for profile display/reporting and stays in sync when roles
+    # are assigned through the admin panel.
     role: Mapped[str] = mapped_column(
         String(30), nullable=False, server_default="operator"
     )

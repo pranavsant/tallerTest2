@@ -16,17 +16,20 @@ from fastapi.responses import JSONResponse
 
 from src.domain.exceptions import (
     AgentNotFoundError,
+    AuthorizationError,
     CallNotFoundError,
     DomainException,
     InvalidPhoneNumberError,
     SessionNotActiveError,
     SessionNotFoundError,
+    UserNotFoundError,
 )
+from src.domain.value_objects.role import Role
 from src.infrastructure.config import get_settings
 from src.infrastructure.db import close_db, init_db
 from src.infrastructure.logging import configure_logging
-from src.interfaces.api.core.dependencies import get_current_user
-from src.interfaces.api.routers import agents, calls, health, messages, sessions
+from src.interfaces.api.core.dependencies import get_current_user, require_role
+from src.interfaces.api.routers import admin, agents, calls, health, messages, sessions
 from src.interfaces.api.websocket_handler import router as ws_router
 
 logger = logging.getLogger(__name__)
@@ -111,6 +114,15 @@ def create_app() -> FastAPI:
     # applied per-endpoint within that router rather than router-wide.
     app.include_router(calls.router, prefix="/calls", tags=["calls"])
 
+    # Admin: user & role management. Gated router-wide on the admin role, so no
+    # endpoint here is reachable without it (acceptance criterion 4).
+    app.include_router(
+        admin.router,
+        prefix="/admin",
+        tags=["admin"],
+        dependencies=[Depends(require_role(Role.ADMIN))],
+    )
+
     # ── Domain exception handlers ─────────────────────────────────────────
     @app.exception_handler(AgentNotFoundError)
     async def agent_not_found_handler(
@@ -130,6 +142,12 @@ def create_app() -> FastAPI:
     ) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": exc.message})
 
+    @app.exception_handler(UserNotFoundError)
+    async def user_not_found_handler(
+        _req: object, exc: UserNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=404, content={"detail": exc.message})
+
     @app.exception_handler(SessionNotActiveError)
     async def session_not_active_handler(
         _req: object, exc: SessionNotActiveError
@@ -141,6 +159,12 @@ def create_app() -> FastAPI:
         _req: object, exc: InvalidPhoneNumberError
     ) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": exc.message})
+
+    @app.exception_handler(AuthorizationError)
+    async def authorization_error_handler(
+        _req: object, exc: AuthorizationError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=403, content={"detail": exc.message})
 
     @app.exception_handler(DomainException)
     async def domain_exception_handler(

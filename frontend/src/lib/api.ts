@@ -25,11 +25,15 @@
  */
 
 import { ApiClient } from "./http";
+import { getBrowserAccessToken } from "./supabase/access-token";
 import { NEXT_PUBLIC_API_BASE_URL } from "@/env";
 import type {
+  AdminUser,
+  AdminUserListResponse,
   Agent,
   AgentListResponse,
   Alert,
+  AssignRoleInput,
   Call,
   CallLog,
   CreateAgentInput,
@@ -37,6 +41,7 @@ import type {
   HealthResponse,
   Incident,
   InitiateCallInput,
+  ListAdminUsersParams,
   ListAgentsParams,
   ListAlertsParams,
   ListCallLogsParams,
@@ -47,6 +52,7 @@ import type {
   SendMessageInput,
   Session,
   StartSessionInput,
+  UserRole,
   UUID,
 } from "./types";
 
@@ -64,7 +70,14 @@ export type { ApiClientOptions, RequestOptions } from "./http";
  * Prefer the per-resource singletons below in components; reach for this when
  * you need a one-off typed request to an endpoint without a resource client.
  */
-export const apiClient = new ApiClient({ baseUrl: NEXT_PUBLIC_API_BASE_URL });
+export const apiClient = new ApiClient({
+  baseUrl: NEXT_PUBLIC_API_BASE_URL,
+  // In the browser, attach the current Supabase access token so the backend
+  // can authenticate the request and enforce the caller's roles. On the server
+  // this resolves to null (see `getBrowserAccessToken`), leaving the request
+  // unauthenticated — server-side callers should pass their own token.
+  getAuthToken: getBrowserAccessToken,
+});
 
 // ---------------------------------------------------------------------------
 // Agents — /agents (live)
@@ -223,6 +236,25 @@ export function createCallLogsApi(client: ApiClient) {
 }
 
 // ---------------------------------------------------------------------------
+// Admin — /admin (live) — user & role management; admin-only on the backend
+// ---------------------------------------------------------------------------
+
+export function createAdminApi(client: ApiClient) {
+  return {
+    /** `GET /admin/users` — list users and their assigned roles. */
+    listUsers(params: ListAdminUsersParams = {}): Promise<AdminUserListResponse> {
+      return client.get<AdminUserListResponse>("/admin/users", {
+        query: { page: params.page, per_page: params.per_page },
+      });
+    },
+    /** `PUT /admin/users/{id}/role` — assign a role to a user. */
+    assignRole(userId: UUID, input: AssignRoleInput): Promise<AdminUser> {
+      return client.put<AdminUser>(`/admin/users/${userId}/role`, input);
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Health — /health (live)
 // ---------------------------------------------------------------------------
 
@@ -246,6 +278,7 @@ export const incidentsApi = createIncidentsApi(apiClient);
 export const alertsApi = createAlertsApi(apiClient);
 export const feedsApi = createFeedsApi(apiClient);
 export const callLogsApi = createCallLogsApi(apiClient);
+export const adminApi = createAdminApi(apiClient);
 export const healthApi = createHealthApi(apiClient);
 
 /** Convenience type for any resource client (handy for DI in components). */
@@ -257,4 +290,5 @@ export type IncidentsApi = ReturnType<typeof createIncidentsApi>;
 export type AlertsApi = ReturnType<typeof createAlertsApi>;
 export type FeedsApi = ReturnType<typeof createFeedsApi>;
 export type CallLogsApi = ReturnType<typeof createCallLogsApi>;
+export type AdminApi = ReturnType<typeof createAdminApi>;
 export type HealthApi = ReturnType<typeof createHealthApi>;

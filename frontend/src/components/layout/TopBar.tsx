@@ -3,6 +3,13 @@
 import { usePathname } from "next/navigation";
 import { Bell, LogOut } from "lucide-react";
 import { logout } from "@/app/login/actions";
+import type { UserRole } from "@/lib/types";
+
+const ROLE_STYLES: Record<UserRole, string> = {
+  admin: "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300",
+  operator: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  viewer: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+};
 
 // ---------------------------------------------------------------------------
 // Derive a human-readable page title from the current pathname
@@ -37,7 +44,13 @@ function capitalise(str: string): string {
 // Component
 // ---------------------------------------------------------------------------
 
-export function TopBar({ userEmail }: { userEmail?: string | null }) {
+export function TopBar({
+  userEmail,
+  role,
+}: {
+  userEmail?: string | null;
+  role?: UserRole | null;
+}) {
   const pathname = usePathname();
   const title = deriveTitle(pathname);
 
@@ -53,6 +66,16 @@ export function TopBar({ userEmail }: { userEmail?: string | null }) {
 
       {/* Right controls */}
       <div className="flex items-center gap-3">
+        {/* Role badge — reflects the user's application role. */}
+        {role && (
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${ROLE_STYLES[role]}`}
+            title={`Your role: ${role}`}
+          >
+            {role}
+          </span>
+        )}
+
         {/* Notification bell (placeholder) */}
         <button
           type="button"

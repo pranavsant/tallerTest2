@@ -4,7 +4,12 @@
  */
 
 import { ApiClient, type FetchLike } from "./http";
-import { createAgentsApi, createIncidentsApi, createSessionsApi } from "./api";
+import {
+  createAdminApi,
+  createAgentsApi,
+  createIncidentsApi,
+  createSessionsApi,
+} from "./api";
 
 function recorder(): {
   fetchFn: FetchLike;
@@ -67,6 +72,27 @@ describe("resource clients", () => {
 
     expect(calls[0].method).toBe("GET");
     expect(calls[0].url).toBe("http://api.test/incidents?severity=high&status=open");
+  });
+
+  it("adminApi.listUsers issues GET /admin/users with pagination", async () => {
+    const { fetchFn, calls } = recorder();
+    const admin = createAdminApi(new ApiClient({ baseUrl: "http://api.test", fetchFn }));
+
+    await admin.listUsers({ page: 2, per_page: 25 });
+
+    expect(calls[0].method).toBe("GET");
+    expect(calls[0].url).toBe("http://api.test/admin/users?page=2&per_page=25");
+  });
+
+  it("adminApi.assignRole issues PUT /admin/users/{id}/role with the role body", async () => {
+    const { fetchFn, calls } = recorder();
+    const admin = createAdminApi(new ApiClient({ baseUrl: "http://api.test", fetchFn }));
+
+    await admin.assignRole("user-1", { role: "operator" });
+
+    expect(calls[0].method).toBe("PUT");
+    expect(calls[0].url).toBe("http://api.test/admin/users/user-1/role");
+    expect(calls[0].body).toBe(JSON.stringify({ role: "operator" }));
   });
 
   it("a resource client can be driven by a hand-written stub (no ApiClient)", async () => {
