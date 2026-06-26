@@ -16,14 +16,17 @@ from src.application.dtos.user_dtos import (
     AssignRoleInputDTO,
     ListUsersInputDTO,
     ListUsersOutputDTO,
+    SetUserActiveInputDTO,
     UserOutputDTO,
 )
 from src.application.use_cases.assign_role import AssignRoleUseCase
 from src.application.use_cases.list_users import ListUsersUseCase
+from src.application.use_cases.set_user_active import SetUserActiveUseCase
 from src.domain.value_objects.role import Role
 from src.interfaces.api.container import (
     get_assign_role_use_case,
     get_list_users_use_case,
+    get_set_user_active_use_case,
 )
 
 router = APIRouter()
@@ -36,6 +39,7 @@ class UserResponse(BaseModel):
     user_id: str
     email: str | None
     role: str | None
+    is_active: bool
     created_at: str | None
     last_sign_in_at: str | None
 
@@ -45,6 +49,7 @@ class UserResponse(BaseModel):
             user_id=dto.user_id,
             email=dto.email,
             role=dto.role,
+            is_active=dto.is_active,
             created_at=dto.created_at.isoformat() if dto.created_at else None,
             last_sign_in_at=(
                 dto.last_sign_in_at.isoformat() if dto.last_sign_in_at else None
@@ -62,6 +67,12 @@ class AssignRoleRequest(BaseModel):
     # Constrained to the recognised roles so an invalid value is rejected at
     # the edge (422) before reaching the use case.
     role: Role = Field(..., description="Role to assign to the user.")
+
+
+class SetUserActiveRequest(BaseModel):
+    is_active: bool = Field(
+        ..., description="True to reactivate the account, False to deactivate it."
+    )
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -93,5 +104,18 @@ async def assign_role(
     """Assign a role to a user. Admin only."""
     result = await use_case.execute(
         AssignRoleInputDTO(user_id=user_id, role=body.role.value)
+    )
+    return UserResponse.from_dto(result)
+
+
+@router.put("/users/{user_id}/status", response_model=UserResponse)
+async def set_user_active(
+    user_id: str,
+    body: SetUserActiveRequest,
+    use_case: SetUserActiveUseCase = Depends(get_set_user_active_use_case),
+) -> UserResponse:
+    """Deactivate or reactivate a user's account. Admin only."""
+    result = await use_case.execute(
+        SetUserActiveInputDTO(user_id=user_id, is_active=body.is_active)
     )
     return UserResponse.from_dto(result)

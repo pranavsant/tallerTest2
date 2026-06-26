@@ -4,12 +4,7 @@
  */
 
 import { ApiClient, type FetchLike } from "./http";
-import {
-  createAdminApi,
-  createAgentsApi,
-  createIncidentsApi,
-  createSessionsApi,
-} from "./api";
+import { createAdminApi, createAgentsApi, createIncidentsApi, createSessionsApi } from "./api";
 
 function recorder(): {
   fetchFn: FetchLike;
@@ -93,6 +88,17 @@ describe("resource clients", () => {
     expect(calls[0].method).toBe("PUT");
     expect(calls[0].url).toBe("http://api.test/admin/users/user-1/role");
     expect(calls[0].body).toBe(JSON.stringify({ role: "operator" }));
+  });
+
+  it("adminApi.setActive issues PUT /admin/users/{id}/status with the body", async () => {
+    const { fetchFn, calls } = recorder();
+    const admin = createAdminApi(new ApiClient({ baseUrl: "http://api.test", fetchFn }));
+
+    await admin.setActive("user-1", { is_active: false });
+
+    expect(calls[0].method).toBe("PUT");
+    expect(calls[0].url).toBe("http://api.test/admin/users/user-1/status");
+    expect(calls[0].body).toBe(JSON.stringify({ is_active: false }));
   });
 
   it("a resource client can be driven by a hand-written stub (no ApiClient)", async () => {

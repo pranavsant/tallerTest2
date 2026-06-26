@@ -24,6 +24,7 @@ from src.application.use_cases.initiate_call import InitiateCallUseCase
 from src.application.use_cases.list_agents import ListAgentsUseCase
 from src.application.use_cases.list_users import ListUsersUseCase
 from src.application.use_cases.send_message import SendMessageUseCase
+from src.application.use_cases.set_user_active import SetUserActiveUseCase
 from src.application.use_cases.start_session import StartSessionUseCase
 from src.application.use_cases.stream_audio import StreamAudioUseCase
 from src.domain.repositories.agent_repository import IAgentRepository
@@ -188,3 +189,7 @@ async def get_list_users_use_case() -> ListUsersUseCase:
 
 async def get_assign_role_use_case() -> AssignRoleUseCase:
     return AssignRoleUseCase(await get_user_directory())
+
+
+async def get_set_user_active_use_case() -> SetUserActiveUseCase:
+    return SetUserActiveUseCase(await get_user_directory())

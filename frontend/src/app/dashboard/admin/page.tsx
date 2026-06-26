@@ -25,12 +25,10 @@ export default async function AdminPage() {
   return (
     <>
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-          User Management
-        </h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">User Management</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Assign roles to control who can configure feeds, trigger calls, and
-          acknowledge incidents.
+          Assign roles to control who can configure feeds, trigger calls, and acknowledge incidents,
+          and deactivate accounts to revoke access.
         </p>
       </div>
 
