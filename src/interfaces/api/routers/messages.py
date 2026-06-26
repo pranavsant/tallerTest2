@@ -8,14 +8,15 @@ from pydantic import BaseModel, Field
 
 from src.application.dtos.message_dtos import MessageOutputDTO, SendMessageInputDTO
 from src.application.use_cases.send_message import SendMessageUseCase
+from src.domain.value_objects.authenticated_user import AuthenticatedUser
 from src.interfaces.api.container import get_send_message_use_case
+from src.interfaces.api.core.dependencies import get_current_user
 
 router = APIRouter()
 
 
 class SendMessageRequest(BaseModel):
     session_id: str = Field(..., min_length=1)
-    user_id: str = Field(..., min_length=1)
     content: str = Field(..., min_length=1)
     synthesise_voice: bool = False
 
@@ -44,11 +45,12 @@ class MessageResponse(BaseModel):
 async def send_message(
     body: SendMessageRequest,
     use_case: SendMessageUseCase = Depends(get_send_message_use_case),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> MessageResponse:
     """Send a message within an active session and receive an agent reply."""
     dto = SendMessageInputDTO(
         session_id=body.session_id,
-        user_id=body.user_id,
+        user_id=current_user.user_id,
         content=body.content,
         synthesise_voice=body.synthesise_voice,
     )

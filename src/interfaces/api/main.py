@@ -10,7 +10,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -25,6 +25,7 @@ from src.domain.exceptions import (
 from src.infrastructure.config import get_settings
 from src.infrastructure.db import close_db, init_db
 from src.infrastructure.logging import configure_logging
+from src.interfaces.api.core.dependencies import get_current_user
 from src.interfaces.api.routers import agents, calls, health, messages, sessions
 from src.interfaces.api.websocket_handler import router as ws_router
 
@@ -89,12 +90,26 @@ def create_app() -> FastAPI:
     )
 
     # ── Routers ───────────────────────────────────────────────────────────
+    # Public routers: health probe and the WebSocket handler.
     app.include_router(health.router, tags=["health"])
-    app.include_router(agents.router, prefix="/agents", tags=["agents"])
-    app.include_router(sessions.router, prefix="/sessions", tags=["sessions"])
-    app.include_router(messages.router, prefix="/messages", tags=["messages"])
-    app.include_router(calls.router, prefix="/calls", tags=["calls"])
     app.include_router(ws_router, tags=["websocket"])
+
+    # Protected routers: every endpoint requires a valid Supabase JWT.
+    # The dependency is attached at the router level so no protected
+    # endpoint can be added without authentication.
+    protected = [Depends(get_current_user)]
+    app.include_router(
+        agents.router, prefix="/agents", tags=["agents"], dependencies=protected
+    )
+    app.include_router(
+        sessions.router, prefix="/sessions", tags=["sessions"], dependencies=protected
+    )
+    app.include_router(
+        messages.router, prefix="/messages", tags=["messages"], dependencies=protected
+    )
+    # Calls mixes protected endpoints with public Twilio webhooks, so auth is
+    # applied per-endpoint within that router rather than router-wide.
+    app.include_router(calls.router, prefix="/calls", tags=["calls"])
 
     # ── Domain exception handlers ─────────────────────────────────────────
     @app.exception_handler(AgentNotFoundError)

@@ -10,7 +10,9 @@ from pydantic import BaseModel, Field
 
 from src.application.dtos.call_dtos import CallOutputDTO, InitiateCallInputDTO
 from src.application.use_cases.initiate_call import InitiateCallUseCase
+from src.domain.value_objects.authenticated_user import AuthenticatedUser
 from src.interfaces.api.container import get_initiate_call_use_case
+from src.interfaces.api.core.dependencies import get_current_user
 
 router = APIRouter()
 
@@ -49,8 +51,9 @@ class CallResponse(BaseModel):
 async def initiate_call(
     body: InitiateCallRequest,
     use_case: InitiateCallUseCase = Depends(get_initiate_call_use_case),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> CallResponse:
-    """Initiate an outbound call via Twilio."""
+    """Initiate an outbound call via Twilio. Requires authentication."""
     dto = InitiateCallInputDTO(
         agent_id=body.agent_id,
         to_phone_number=body.to_phone_number,

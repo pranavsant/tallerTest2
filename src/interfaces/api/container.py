@@ -13,6 +13,7 @@ from functools import lru_cache
 
 from src.application.ports.realtime_publisher import IRealtimePublisher
 from src.application.ports.telephony_service import ITelephonyService
+from src.application.ports.token_validator import ITokenValidator
 from src.application.ports.voice_service import IVoiceService
 from src.application.use_cases.create_agent import CreateAgentUseCase
 from src.application.use_cases.end_session import EndSessionUseCase
@@ -44,6 +45,7 @@ from src.infrastructure.repositories.supabase_session_repository import (
     SupabaseSessionRepository,
 )
 from src.infrastructure.services.elevenlabs_voice_service import ElevenLabsVoiceService
+from src.infrastructure.services.supabase_jwt_validator import SupabaseJWTValidator
 from src.infrastructure.services.twilio_telephony_service import TwilioTelephonyService
 from src.infrastructure.services.websocket_realtime_publisher import (
     ConnectionRegistry,
@@ -101,6 +103,12 @@ def get_realtime_publisher() -> IRealtimePublisher:
 
 def get_orchestrator() -> SessionOrchestrator:
     return SessionOrchestrator()
+
+
+@lru_cache(maxsize=1)
+def get_token_validator() -> ITokenValidator:
+    settings = get_settings()
+    return SupabaseJWTValidator(jwt_secret=settings.supabase_jwt_secret)
 
 
 # ── Use case factories ────────────────────────────────────────────────────────
