@@ -8,17 +8,25 @@ Both are wired into the FastAPI lifespan context in ``src/interfaces/api/main.py
 
 Session dependency
 ------------------
-Use ``get_db`` as a FastAPI ``Depends`` to get a scoped ``AsyncSession``:
+Use ``get_db`` / ``get_session`` as a FastAPI ``Depends`` to get a scoped ``AsyncSession``:
 
     async def my_handler(db: AsyncSession = Depends(get_db)) -> ...:
         ...
 
 The session is committed on clean exit and rolled back on exception.
+
+Exposes:
+  - ``make_engine``          — create an async SQLAlchemy engine from Settings
+  - ``make_session_factory`` — create an ``async_sessionmaker`` bound to an engine
+  - ``get_db`` / ``get_session`` — async context manager for use as a FastAPI dependency
+  - ``init_db``              — initialise the module-level singletons on startup
+  - ``close_db``             — dispose of the engine / pool on shutdown
 """
 from __future__ import annotations
 
 import logging
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -37,7 +45,7 @@ _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
-# ── Public lifecycle API ───────────────────────────────────────────────────────
+# ── Public factory helpers ────────────────────────────────────────────────────
 
 
 def make_engine() -> AsyncEngine:
@@ -62,6 +70,9 @@ def make_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession
         autoflush=False,
         autocommit=False,
     )
+
+
+# ── Public lifecycle API ───────────────────────────────────────────────────────
 
 
 async def init_db() -> None:
@@ -104,7 +115,46 @@ async def close_db() -> None:
         logger.info("Database pool closed")
 
 
-# ── FastAPI dependency ─────────────────────────────────────────────────────────
+# ── Internal lazy initialisation (for use outside of lifespan context) ────────
+
+
+def _get_session_factory() -> async_sessionmaker[AsyncSession]:
+    global _engine, _session_factory
+    if _session_factory is None:
+        _engine = make_engine()
+        _session_factory = make_session_factory(_engine)
+    return _session_factory
+
+
+# ── FastAPI dependency / context manager ──────────────────────────────────────
+
+
+@asynccontextmanager
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Async context manager that yields a database session.
+
+    Usage as a FastAPI dependency::
+
+        async def my_endpoint(session: AsyncSession = Depends(get_session)):
+            ...
+
+    Usage as a plain context manager::
+
+        async with get_session() as session:
+            result = await session.execute(...)
+
+    When ``init_db()`` has been called, the module-level session factory is
+    used; otherwise one is created lazily.
+    """
+    factory = _session_factory if _session_factory is not None else _get_session_factory()
+    async with factory() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -116,18 +166,10 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     ``finally`` block.
 
     Raises ``RuntimeError`` if the pool has not been initialised (i.e.
-    ``init_db()`` was never called).
-    """
-    if _session_factory is None:
-        raise RuntimeError(
-            "Database pool is not initialised. "
-            "Ensure init_db() is called during application startup."
-        )
+    ``init_db()`` was never called) and lazy initialisation is not available.
 
-    async with _session_factory() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
+    This is an alias for ``get_session`` suitable for use with FastAPI
+    ``Depends``.
+    """
+    async with get_session() as session:
+        yield session
