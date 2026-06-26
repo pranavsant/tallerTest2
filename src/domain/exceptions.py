@@ -72,6 +72,28 @@ class ExpiredTokenError(AuthenticationError):
     """The token is well-formed but has expired."""
 
 
+# ── Authorization ────────────────────────────────────────────────────────────
+
+
+class AuthorizationError(DomainException):
+    """The principal is authenticated but lacks permission (maps to HTTP 403)."""
+
+
+class InsufficientRoleError(AuthorizationError):
+    """The authenticated user does not hold a role required for the action."""
+
+
+# ── User / Role administration ───────────────────────────────────────────────
+
+
+class UserNotFoundError(DomainException):
+    """No user exists with the given identifier."""
+
+
+class InvalidRoleError(DomainException):
+    """The supplied role is not one of the recognised application roles."""
+
+
 # ── Call ───────────────────────────────────────────────────────────────────
 
 

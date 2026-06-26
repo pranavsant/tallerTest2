@@ -300,6 +300,39 @@ export interface ListCallLogsParams extends PaginationParams {
 }
 
 // ---------------------------------------------------------------------------
+// Admin — user & role management (`/admin/*`)
+// ---------------------------------------------------------------------------
+
+/**
+ * A user as returned by the admin API (`GET /admin/users`). Identity is owned
+ * by Supabase Auth; `role` is the application role read from the user's
+ * `app_metadata`. `role` is `null` when no application role has been assigned.
+ */
+export interface AdminUser {
+  user_id: UUID;
+  email: string | null;
+  role: UserRole | null;
+  created_at: ISODateString | null;
+  last_sign_in_at: ISODateString | null;
+}
+
+export interface AdminUserListResponse {
+  users: AdminUser[];
+  page: number;
+  per_page: number;
+}
+
+export interface ListAdminUsersParams {
+  page?: number;
+  per_page?: number;
+}
+
+/** Body of `PUT /admin/users/{id}/role`. */
+export interface AssignRoleInput {
+  role: UserRole;
+}
+
+// ---------------------------------------------------------------------------
 // Response envelopes
 // ---------------------------------------------------------------------------
 
