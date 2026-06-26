@@ -18,9 +18,15 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.application.ports.token_validator import ITokenValidator
+from src.domain.exceptions import AuthenticationError
+from src.domain.value_objects.authenticated_user import AuthenticatedUser
 from src.infrastructure.db import get_db
+from src.interfaces.api.container import get_token_validator
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -32,3 +38,42 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """
     async for session in get_db():
         yield session
+
+
+# ── Authentication ──────────────────────────────────────────────────────────
+
+# ``auto_error=False`` lets us raise a uniform 401 (with a WWW-Authenticate
+# header) for both the "no token" and "bad token" cases, rather than the
+# 403 FastAPI would otherwise return when the header is absent.
+_bearer_scheme = HTTPBearer(auto_error=False)
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    validator: ITokenValidator = Depends(get_token_validator),
+) -> AuthenticatedUser:
+    """
+    FastAPI dependency that authenticates the request.
+
+    Extracts the bearer token from the ``Authorization`` header, validates
+    its signature and expiry via the configured token validator, and returns
+    the resulting :class:`AuthenticatedUser` (carrying ``user_id`` and
+    ``roles``) for injection into route handlers.
+
+    Raises HTTP 401 when the token is missing, malformed, or expired.
+    """
+    if credentials is None or not credentials.credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        return validator.validate(credentials.credentials)
+    except AuthenticationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=exc.message,
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc

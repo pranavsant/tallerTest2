@@ -53,6 +53,25 @@ class MessageTooLongError(DomainException):
     pass
 
 
+# ── Auth ───────────────────────────────────────────────────────────────────
+
+
+class AuthenticationError(DomainException):
+    """Base class for authentication failures (maps to HTTP 401)."""
+
+
+class MissingTokenError(AuthenticationError):
+    """No bearer token was supplied on a protected request."""
+
+
+class InvalidTokenError(AuthenticationError):
+    """The token signature is invalid or the token is malformed."""
+
+
+class ExpiredTokenError(AuthenticationError):
+    """The token is well-formed but has expired."""
+
+
 # ── Call ───────────────────────────────────────────────────────────────────
 
 
