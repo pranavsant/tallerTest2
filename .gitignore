@@ -46,6 +46,15 @@ frontend/.eslintcache
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 
+# The Python artifact patterns above (e.g. `lib/`, `build/`, `dist/`) are
+# unanchored and would otherwise swallow frontend source dirs such as
+# `frontend/src/lib`. Re-include the frontend source tree. Note: a parent
+# directory must be re-included before its contents, so list `frontend/src`
+# and the affected subdir explicitly.
+!frontend/src/
+!frontend/src/lib/
+!frontend/src/lib/**
+
 # ── Node (root tooling) ───────────────────
 node_modules/
 
