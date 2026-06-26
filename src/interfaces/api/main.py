@@ -7,6 +7,8 @@ Start with:
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,12 +23,47 @@ from src.domain.exceptions import (
     SessionNotFoundError,
 )
 from src.infrastructure.config import get_settings
+from src.infrastructure.db import close_db, init_db
+from src.infrastructure.logging import configure_logging
 from src.interfaces.api.routers import agents, calls, health, messages, sessions
 from src.interfaces.api.websocket_handler import router as ws_router
 
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
+
+
+# ── Lifespan ──────────────────────────────────────────────────────────────────
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """
+    Application lifespan handler.
+
+    Startup
+    -------
+    1. Configure structured logging (structlog → stdlib bridge).
+    2. Initialise the async database connection pool.
+
+    Shutdown
+    --------
+    1. Dispose of the database pool, closing all open connections.
+    """
+    # ── Startup ───────────────────────────────────────────────────────────
+    configure_logging()
+    logger.info(
+        "Starting Overseer AI API",
+        extra={"env": settings.app_env, "version": "0.1.0"},
+    )
+    await init_db()
+
+    yield
+
+    # ── Shutdown ──────────────────────────────────────────────────────────
+    logger.info("Shutting down Overseer AI API")
+    await close_db()
+
 
 # ── Application factory ───────────────────────────────────────────────────────
 
@@ -39,6 +76,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        lifespan=lifespan,
     )
 
     # ── CORS ──────────────────────────────────────────────────────────────
@@ -60,27 +98,39 @@ def create_app() -> FastAPI:
 
     # ── Domain exception handlers ─────────────────────────────────────────
     @app.exception_handler(AgentNotFoundError)
-    async def agent_not_found_handler(_req: object, exc: AgentNotFoundError) -> JSONResponse:
+    async def agent_not_found_handler(
+        _req: object, exc: AgentNotFoundError
+    ) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": exc.message})
 
     @app.exception_handler(SessionNotFoundError)
-    async def session_not_found_handler(_req: object, exc: SessionNotFoundError) -> JSONResponse:
+    async def session_not_found_handler(
+        _req: object, exc: SessionNotFoundError
+    ) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": exc.message})
 
     @app.exception_handler(CallNotFoundError)
-    async def call_not_found_handler(_req: object, exc: CallNotFoundError) -> JSONResponse:
+    async def call_not_found_handler(
+        _req: object, exc: CallNotFoundError
+    ) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": exc.message})
 
     @app.exception_handler(SessionNotActiveError)
-    async def session_not_active_handler(_req: object, exc: SessionNotActiveError) -> JSONResponse:
+    async def session_not_active_handler(
+        _req: object, exc: SessionNotActiveError
+    ) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": exc.message})
 
     @app.exception_handler(InvalidPhoneNumberError)
-    async def invalid_phone_handler(_req: object, exc: InvalidPhoneNumberError) -> JSONResponse:
+    async def invalid_phone_handler(
+        _req: object, exc: InvalidPhoneNumberError
+    ) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": exc.message})
 
     @app.exception_handler(DomainException)
-    async def domain_exception_handler(_req: object, exc: DomainException) -> JSONResponse:
+    async def domain_exception_handler(
+        _req: object, exc: DomainException
+    ) -> JSONResponse:
         return JSONResponse(status_code=400, content={"detail": exc.message})
 
     return app
