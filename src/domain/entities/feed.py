@@ -40,6 +40,14 @@ class Feed:
     MIN_POLLING_INTERVAL_SECONDS = 5
     MAX_POLLING_INTERVAL_SECONDS = 86_400
 
+    # Fallback cadence for polling feeds that don't set an explicit interval.
+    DEFAULT_POLLING_INTERVAL_SECONDS = 300
+
+    # Exponential-backoff bounds applied after consecutive ingestion failures.
+    # The delay doubles each failure (interval * 2**failures) but is never
+    # allowed to exceed this ceiling so a feed is always eventually retried.
+    MAX_BACKOFF_SECONDS = 3_600
+
     _ALLOWED_URL_SCHEMES = ("http", "https")
 
     def __init__(
@@ -54,6 +62,8 @@ class Feed:
         status: FeedStatus = FeedStatus.ACTIVE,
         is_enabled: bool = True,
         last_ingested_at: datetime | None = None,
+        consecutive_failures: int = 0,
+        last_error: str | None = None,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
     ) -> None:
@@ -63,6 +73,8 @@ class Feed:
         self._status = status
         self._is_enabled = is_enabled
         self._last_ingested_at = last_ingested_at
+        self._consecutive_failures = max(0, consecutive_failures)
+        self._last_error = last_error
         self._config = dict(config) if config else {}
 
         # source_type is set first so URL validation can consult it.
@@ -90,6 +102,16 @@ class Feed:
     @property
     def last_ingested_at(self) -> datetime | None:
         return self._last_ingested_at
+
+    @property
+    def consecutive_failures(self) -> int:
+        """Number of consecutive failed polls since the last success."""
+        return self._consecutive_failures
+
+    @property
+    def last_error(self) -> str | None:
+        """Reason the most recent poll failed, if it failed."""
+        return self._last_error
 
     # ── Mutable attributes with validation ─────────────────────────────────
 
@@ -191,6 +213,58 @@ class Feed:
         """Disable the feed, pausing ingestion while preserving the record."""
         self._is_enabled = False
         self._status = FeedStatus.DISABLED
+        self._touch()
+
+    def is_due_for_polling(self) -> bool:
+        """Whether this feed should currently be polled.
+
+        Only enabled, polling-type feeds that are not paused or disabled are
+        eligible. The scheduler still owns the cadence; this guards against
+        polling a feed an operator has explicitly stood down.
+        """
+        return (
+            self._is_enabled
+            and self._source_type.is_polling()
+            and self._status not in (FeedStatus.PAUSED, FeedStatus.DISABLED)
+        )
+
+    # ── Ingestion outcomes & backoff ─────────────────────────────────────────
+
+    def effective_interval_seconds(self) -> int:
+        """The configured polling cadence, or the platform default."""
+        return self._polling_interval_seconds or self.DEFAULT_POLLING_INTERVAL_SECONDS
+
+    def next_poll_delay_seconds(self) -> int:
+        """Seconds to wait before the next poll, honouring exponential backoff.
+
+        With no recent failures this is simply the effective interval. After
+        *n* consecutive failures the delay is ``interval * 2**n``, capped at
+        :attr:`MAX_BACKOFF_SECONDS` so a persistently failing feed is still
+        retried roughly hourly rather than abandoned.
+        """
+        interval = self.effective_interval_seconds()
+        if self._consecutive_failures == 0:
+            return interval
+        # Cap the exponent so 2**n cannot overflow into an absurd delay.
+        exponent = min(self._consecutive_failures, 20)
+        backed_off = interval * (2**exponent)
+        return min(backed_off, self.MAX_BACKOFF_SECONDS)  # type: ignore[no-any-return]
+
+    def record_ingestion_success(self, *, at: datetime | None = None) -> None:
+        """Record a successful poll: clears backoff and stamps the time."""
+        self._last_ingested_at = at or datetime.now(timezone.utc)
+        self._consecutive_failures = 0
+        self._last_error = None
+        # A previously-erroring feed that polls cleanly returns to active.
+        if self._status == FeedStatus.ERROR:
+            self._status = FeedStatus.ACTIVE
+        self._touch()
+
+    def record_ingestion_failure(self, error: str) -> None:
+        """Record a failed poll: increments backoff and flags the error state."""
+        self._consecutive_failures += 1
+        self._last_error = error
+        self._status = FeedStatus.ERROR
         self._touch()
 
     # ── Internals ───────────────────────────────────────────────────────────

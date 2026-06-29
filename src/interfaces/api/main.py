@@ -54,7 +54,7 @@ settings = get_settings()
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """
     Application lifespan handler.
 
@@ -62,10 +62,12 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     -------
     1. Configure structured logging (structlog → stdlib bridge).
     2. Initialise the async database connection pool.
+    3. Start the background feed-ingestion scheduler.
 
     Shutdown
     --------
-    1. Dispose of the database pool, closing all open connections.
+    1. Stop the feed-ingestion scheduler.
+    2. Dispose of the database pool, closing all open connections.
     """
     # ── Startup ───────────────────────────────────────────────────────────
     configure_logging()
@@ -74,12 +76,41 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         extra={"env": settings.app_env, "version": "0.1.0"},
     )
     await init_db()
+    app.state.feed_scheduler = await _start_feed_scheduler()
 
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────────────
     logger.info("Shutting down Overseer AI API")
+    scheduler = getattr(app.state, "feed_scheduler", None)
+    if scheduler is not None:
+        scheduler.shutdown()
     await close_db()
+
+
+async def _start_feed_scheduler() -> object | None:
+    """Build and start the feed-ingestion scheduler, if enabled.
+
+    Failures are logged and swallowed (mirroring ``init_db``) so the API still
+    serves requests in environments without a reachable database/Supabase.
+    """
+    if not settings.feed_ingestion_enabled:
+        logger.info("Feed ingestion scheduler disabled by configuration")
+        return None
+    try:
+        # Imported lazily so the container (and its infrastructure imports) is
+        # only loaded when the worker is actually enabled.
+        from src.interfaces.api.container import build_feed_ingestion_scheduler
+
+        scheduler = await build_feed_ingestion_scheduler()
+        scheduler.start()
+        return scheduler
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Feed ingestion scheduler could not start: %s — continuing without it.",
+            exc,
+        )
+        return None
 
 
 # ── Application factory ───────────────────────────────────────────────────────
