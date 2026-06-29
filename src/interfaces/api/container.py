@@ -18,17 +18,24 @@ from src.application.ports.user_directory import IUserDirectory
 from src.application.ports.voice_service import IVoiceService
 from src.application.use_cases.assign_role import AssignRoleUseCase
 from src.application.use_cases.create_agent import CreateAgentUseCase
+from src.application.use_cases.create_feed import CreateFeedUseCase
+from src.application.use_cases.delete_feed import DeleteFeedUseCase
 from src.application.use_cases.end_session import EndSessionUseCase
+from src.application.use_cases.get_feed import GetFeedUseCase
 from src.application.use_cases.get_agent import GetAgentUseCase
 from src.application.use_cases.initiate_call import InitiateCallUseCase
 from src.application.use_cases.list_agents import ListAgentsUseCase
+from src.application.use_cases.list_feeds import ListFeedsUseCase
 from src.application.use_cases.list_users import ListUsersUseCase
 from src.application.use_cases.send_message import SendMessageUseCase
+from src.application.use_cases.set_feed_enabled import SetFeedEnabledUseCase
 from src.application.use_cases.set_user_active import SetUserActiveUseCase
 from src.application.use_cases.start_session import StartSessionUseCase
 from src.application.use_cases.stream_audio import StreamAudioUseCase
+from src.application.use_cases.update_feed import UpdateFeedUseCase
 from src.domain.repositories.agent_repository import IAgentRepository
 from src.domain.repositories.call_repository import ICallRepository
+from src.domain.repositories.feed_repository import IFeedRepository
 from src.domain.repositories.message_repository import IMessageRepository
 from src.domain.repositories.session_repository import ISessionRepository
 from src.domain.services.session_orchestrator import SessionOrchestrator
@@ -41,6 +48,9 @@ from src.infrastructure.repositories.supabase_agent_repository import (
 )
 from src.infrastructure.repositories.supabase_call_repository import (
     SupabaseCallRepository,
+)
+from src.infrastructure.repositories.supabase_feed_repository import (
+    SupabaseFeedRepository,
 )
 from src.infrastructure.repositories.supabase_message_repository import (
     SupabaseMessageRepository,
@@ -89,6 +99,11 @@ async def get_message_repository() -> IMessageRepository:
 async def get_call_repository() -> ICallRepository:
     client = await get_supabase_client()
     return SupabaseCallRepository(client)
+
+
+async def get_feed_repository() -> IFeedRepository:
+    client = await get_supabase_client()
+    return SupabaseFeedRepository(client)
 
 
 async def get_user_directory() -> IUserDirectory:
@@ -181,6 +196,30 @@ async def get_stream_audio_use_case() -> StreamAudioUseCase:
         agent_repository=await get_agent_repository(),
         voice_service=get_voice_service(),
     )
+
+
+async def get_create_feed_use_case() -> CreateFeedUseCase:
+    return CreateFeedUseCase(await get_feed_repository())
+
+
+async def get_get_feed_use_case() -> GetFeedUseCase:
+    return GetFeedUseCase(await get_feed_repository())
+
+
+async def get_list_feeds_use_case() -> ListFeedsUseCase:
+    return ListFeedsUseCase(await get_feed_repository())
+
+
+async def get_update_feed_use_case() -> UpdateFeedUseCase:
+    return UpdateFeedUseCase(await get_feed_repository())
+
+
+async def get_delete_feed_use_case() -> DeleteFeedUseCase:
+    return DeleteFeedUseCase(await get_feed_repository())
+
+
+async def get_set_feed_enabled_use_case() -> SetFeedEnabledUseCase:
+    return SetFeedEnabledUseCase(await get_feed_repository())
 
 
 async def get_list_users_use_case() -> ListUsersUseCase:

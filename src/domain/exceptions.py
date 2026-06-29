@@ -94,6 +94,29 @@ class InvalidRoleError(DomainException):
     """The supplied role is not one of the recognised application roles."""
 
 
+# ── Feed ───────────────────────────────────────────────────────────────────
+
+
+class FeedNotFoundError(DomainException):
+    """No feed exists with the given identifier."""
+
+
+class InvalidFeedNameError(DomainException):
+    """The feed name is empty or exceeds the maximum length."""
+
+
+class InvalidFeedSourceTypeError(DomainException):
+    """The supplied source type is not one of the recognised feed types."""
+
+
+class InvalidFeedUrlError(DomainException):
+    """The endpoint URL is malformed or missing when the source type requires it."""
+
+
+class InvalidPollingIntervalError(DomainException):
+    """The polling interval is outside the permitted bounds."""
+
+
 # ── Call ───────────────────────────────────────────────────────────────────
 
 
