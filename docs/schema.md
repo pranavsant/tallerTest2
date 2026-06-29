@@ -16,6 +16,7 @@
 4. [calls](#calls)
 5. [users](#users)
 6. [feeds](#feeds)
+6a. [raw_feed_items](#raw_feed_items)
 7. [incidents](#incidents)
 8. [alerts](#alerts)
 9. [call_logs](#call_logs)
@@ -153,6 +154,42 @@ Data ingestion sources whose events are processed into incidents and alerts.
 
 **Indexes:** `idx_feeds_status`, `idx_feeds_source_type`, `idx_feeds_is_enabled`  
 **Triggers:** `feeds_updated_at`
+
+> **Reserved `config` keys** (managed by the app, lifted out into the `Feed`
+> entity rather than exposed as raw config): `polling_interval_seconds`
+> (poll cadence), `_consecutive_failures` and `_last_error` (ingestion backoff
+> bookkeeping), and `format` / `items_path` / `field_map` / `headers` (consumed
+> by the polling fetchers to parse RSS/Atom vs JSON-API sources).
+
+---
+
+## raw_feed_items
+
+Normalised, deduplicated units of content ingested from a Feed by the
+background ingestion worker. Every row is queued for downstream AI analysis;
+`status` tracks its progress through that pipeline. Re-ingesting the same
+underlying item is a no-op, enforced by the `(feed_id, content_hash)` UNIQUE
+constraint.
+
+| Column | Type | Nullable | Default | Notes |
+|---|---|---|---|---|
+| `id` | `UUID` | NO | `uuid_generate_v4()` | PK |
+| `feed_id` | `UUID` | NO | — | FK → `feeds.id` CASCADE DELETE |
+| `content_hash` | `VARCHAR(64)` | NO | — | SHA-256 dedup digest (feed-scoped) |
+| `external_id` | `TEXT` | YES | — | Source's own item identifier, if any |
+| `title` | `TEXT` | YES | — | Normalised headline |
+| `content` | `TEXT` | YES | — | Normalised body/payload text |
+| `url` | `TEXT` | YES | — | Canonical link back to the source item |
+| `published_at` | `TIMESTAMPTZ` | YES | — | Source-reported publish time |
+| `raw` | `JSONB` | NO | `'{}'` | Untouched source payload (for re-processing) |
+| `status` | `TEXT` | NO | `'pending'` | `pending \| processing \| analyzed \| failed` |
+| `error` | `TEXT` | YES | — | Reason analysis failed, if it failed |
+| `created_at` | `TIMESTAMPTZ` | NO | `NOW()` | |
+
+**Constraints:** `uq_raw_feed_items_feed_content_hash UNIQUE (feed_id, content_hash)`  
+**Indexes:** `idx_raw_feed_items_feed_id`, `idx_raw_feed_items_status`, `idx_raw_feed_items_created_at`  
+> Append-mostly: rows are inserted on ingest and only their `status`/`error`
+> change as the AI-analysis stage processes them. No `updated_at` trigger.
 
 ---
 
@@ -298,6 +335,10 @@ calls ──── call_logs
 | `feeds` | `idx_feeds_status` | `status` |
 | `feeds` | `idx_feeds_source_type` | `source_type` |
 | `feeds` | `idx_feeds_is_enabled` | `is_enabled` |
+| `raw_feed_items` | `idx_raw_feed_items_feed_id` | `feed_id` |
+| `raw_feed_items` | `idx_raw_feed_items_status` | `status` |
+| `raw_feed_items` | `idx_raw_feed_items_created_at` | `created_at` |
+| `raw_feed_items` | `uq_raw_feed_items_feed_content_hash` | `(feed_id, content_hash)` (UNIQUE) |
 | `incidents` | `idx_incidents_severity` | `severity` |
 | `incidents` | `idx_incidents_status` | `status` |
 | `incidents` | `idx_incidents_feed_id` | `feed_id` |
@@ -346,6 +387,7 @@ Tables with the trigger: `agents`, `users`, `feeds`, `incidents`, `alerts`,
 |---|---|
 | `001_initial_schema.sql` | `agents`, `sessions`, `messages`, `calls` |
 | `002_core_entities.sql` | `users`, `feeds`, `incidents`, `alerts`, `call_logs`, `audit_logs` |
+| `003_raw_feed_items.sql` | `raw_feed_items` (feed ingestion pipeline) |
 
 Run with:
 ```bash
@@ -357,6 +399,7 @@ python -m migrations.run
 | Revision | File | Description |
 |---|---|---|
 | `0001` | `alembic/versions/0001_initial_schema.py` | Full schema (all 10 tables) |
+| `0002` | `alembic/versions/0002_raw_feed_items.py` | `raw_feed_items` (feed ingestion pipeline) |
 
 Run with:
 ```bash

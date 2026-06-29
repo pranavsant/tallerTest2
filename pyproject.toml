@@ -21,6 +21,8 @@ dependencies = [
     "asyncpg>=0.29.0",
     "sqlalchemy[asyncio]>=2.0.0",
     "alembic>=1.13.0",
+    # ── Background scheduling ─────────────
+    "apscheduler>=3.10.0",
     # ── Auth / Security ───────────────────
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",

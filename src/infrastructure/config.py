@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     # ── WebSocket ───────────────────────────────────────────────────────
     ws_heartbeat_interval: int = Field(default=30)
 
+    # ── Feed ingestion worker ───────────────────────────────────────────
+    # Master switch for the background polling scheduler. Disabled in tests
+    # and any process that should not poll (e.g. one-off CLI invocations).
+    feed_ingestion_enabled: bool = Field(default=True)
+    # How often the scheduler re-discovers the active feed set from the DB.
+    feed_ingestion_sync_interval: int = Field(default=60)
+
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",")]

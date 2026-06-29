@@ -15,6 +15,7 @@ from src.infrastructure.db.models.call_log import CallLogModel
 from src.infrastructure.db.models.feed import FeedModel
 from src.infrastructure.db.models.incident import IncidentModel
 from src.infrastructure.db.models.message import MessageModel
+from src.infrastructure.db.models.raw_feed_item import RawFeedItemModel
 from src.infrastructure.db.models.session import SessionModel
 from src.infrastructure.db.models.user import UserModel
 
@@ -27,6 +28,7 @@ __all__ = [
     "FeedModel",
     "IncidentModel",
     "MessageModel",
+    "RawFeedItemModel",
     "SessionModel",
     "UserModel",
 ]

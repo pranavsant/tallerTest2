@@ -117,6 +117,21 @@ class InvalidPollingIntervalError(DomainException):
     """The polling interval is outside the permitted bounds."""
 
 
+# ── Raw feed items ───────────────────────────────────────────────────────────
+
+
+class MissingFeedReferenceError(DomainException):
+    """A raw feed item was constructed without the owning feed's identifier."""
+
+
+class InvalidContentHashError(DomainException):
+    """A raw feed item was constructed without a usable content hash."""
+
+
+class EmptyFeedItemError(DomainException):
+    """A raw feed item carries neither a title nor any content."""
+
+
 # ── Call ───────────────────────────────────────────────────────────────────
 
 

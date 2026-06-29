@@ -24,6 +24,10 @@ from src.domain.value_objects.feed_status import FeedStatus
 
 _TABLE = "feeds"
 _INTERVAL_KEY = "polling_interval_seconds"
+# Ingestion bookkeeping persisted inside the config JSONB, since the feeds
+# table has no dedicated columns for it. Reserved keys lifted out on read.
+_FAILURES_KEY = "_consecutive_failures"
+_LAST_ERROR_KEY = "_last_error"
 
 
 class SupabaseFeedRepository(IFeedRepository):
@@ -122,6 +126,17 @@ class SupabaseFeedRepository(IFeedRepository):
         else:
             config.pop(_INTERVAL_KEY, None)
 
+        # Persist ingestion backoff state. Only written when non-default so a
+        # healthy feed's config stays clean.
+        if feed.consecutive_failures:
+            config[_FAILURES_KEY] = feed.consecutive_failures
+        else:
+            config.pop(_FAILURES_KEY, None)
+        if feed.last_error:
+            config[_LAST_ERROR_KEY] = feed.last_error
+        else:
+            config.pop(_LAST_ERROR_KEY, None)
+
         return {
             "id": feed.id,
             "name": feed.name,
@@ -143,6 +158,8 @@ class SupabaseFeedRepository(IFeedRepository):
     def _to_entity(row: dict[str, Any]) -> Feed:
         config = dict(row.get("config") or {})
         polling_interval = config.pop(_INTERVAL_KEY, None)
+        consecutive_failures = config.pop(_FAILURES_KEY, 0)
+        last_error = config.pop(_LAST_ERROR_KEY, None)
 
         return Feed(
             feed_id=row["id"],
@@ -156,6 +173,8 @@ class SupabaseFeedRepository(IFeedRepository):
             status=FeedStatus(row["status"]),
             is_enabled=bool(row["is_enabled"]),
             last_ingested_at=_parse_dt(row.get("last_ingested_at")),
+            consecutive_failures=int(consecutive_failures or 0),
+            last_error=last_error,
             created_at=_parse_dt(row["created_at"]),
             updated_at=_parse_dt(row["updated_at"]),
         )

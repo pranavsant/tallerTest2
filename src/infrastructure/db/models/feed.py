@@ -47,6 +47,9 @@ class FeedModel(Base):
     alerts: Mapped[list["AlertModel"]] = relationship(  # type: ignore[name-defined]
         "AlertModel", back_populates="feed"
     )
+    raw_items: Mapped[list["RawFeedItemModel"]] = relationship(  # type: ignore[name-defined]
+        "RawFeedItemModel", back_populates="feed", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         CheckConstraint(
