@@ -19,7 +19,12 @@ from src.domain.exceptions import (
     AuthorizationError,
     CallNotFoundError,
     DomainException,
+    FeedNotFoundError,
+    InvalidFeedNameError,
+    InvalidFeedSourceTypeError,
+    InvalidFeedUrlError,
     InvalidPhoneNumberError,
+    InvalidPollingIntervalError,
     SessionNotActiveError,
     SessionNotFoundError,
     UserNotFoundError,
@@ -29,7 +34,15 @@ from src.infrastructure.config import get_settings
 from src.infrastructure.db import close_db, init_db
 from src.infrastructure.logging import configure_logging
 from src.interfaces.api.core.dependencies import get_current_user, require_role
-from src.interfaces.api.routers import admin, agents, calls, health, messages, sessions
+from src.interfaces.api.routers import (
+    admin,
+    agents,
+    calls,
+    feeds,
+    health,
+    messages,
+    sessions,
+)
 from src.interfaces.api.websocket_handler import router as ws_router
 
 logger = logging.getLogger(__name__)
@@ -110,6 +123,11 @@ def create_app() -> FastAPI:
     app.include_router(
         messages.router, prefix="/messages", tags=["messages"], dependencies=protected
     )
+    # Feeds: reads open to any authenticated user, writes gated on admin
+    # per-endpoint within the router (acceptance criterion 4).
+    app.include_router(
+        feeds.router, prefix="/feeds", tags=["feeds"], dependencies=protected
+    )
     # Calls mixes protected endpoints with public Twilio webhooks, so auth is
     # applied per-endpoint within that router rather than router-wide.
     app.include_router(calls.router, prefix="/calls", tags=["calls"])
@@ -148,6 +166,12 @@ def create_app() -> FastAPI:
     ) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": exc.message})
 
+    @app.exception_handler(FeedNotFoundError)
+    async def feed_not_found_handler(
+        _req: object, exc: FeedNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=404, content={"detail": exc.message})
+
     @app.exception_handler(SessionNotActiveError)
     async def session_not_active_handler(
         _req: object, exc: SessionNotActiveError
@@ -157,6 +181,33 @@ def create_app() -> FastAPI:
     @app.exception_handler(InvalidPhoneNumberError)
     async def invalid_phone_handler(
         _req: object, exc: InvalidPhoneNumberError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=422, content={"detail": exc.message})
+
+    # Feed input-validation failures map to 422, mirroring the phone-number
+    # handler above. These can be raised by the entity even after Pydantic
+    # passes (e.g. an endpoint URL required by the chosen source type).
+    @app.exception_handler(InvalidFeedNameError)
+    async def invalid_feed_name_handler(
+        _req: object, exc: InvalidFeedNameError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=422, content={"detail": exc.message})
+
+    @app.exception_handler(InvalidFeedSourceTypeError)
+    async def invalid_feed_source_type_handler(
+        _req: object, exc: InvalidFeedSourceTypeError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=422, content={"detail": exc.message})
+
+    @app.exception_handler(InvalidFeedUrlError)
+    async def invalid_feed_url_handler(
+        _req: object, exc: InvalidFeedUrlError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=422, content={"detail": exc.message})
+
+    @app.exception_handler(InvalidPollingIntervalError)
+    async def invalid_polling_interval_handler(
+        _req: object, exc: InvalidPollingIntervalError
     ) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": exc.message})
 
